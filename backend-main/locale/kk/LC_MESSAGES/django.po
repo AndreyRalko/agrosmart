@@ -1,0 +1,189 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-02 00:02+0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n!=1);\n"
+
+#: agro/settings.py:149
+msgid "Русский"
+msgstr "Орыс тілі"
+
+#: agro/settings.py:150
+msgid "Қазақша"
+msgstr "Қазақ тілі"
+
+#: agro_operation/validators.py:12
+msgid "Must be a JSON object."
+msgstr "JSON нысаны (object) болуы тиіс."
+
+#: agro_operation/validators.py:14
+msgid "This field cannot be empty."
+msgstr "Міндетті аудармалар үшін бұл өріс бос болмауы тиіс."
+
+#: agro_operation/validators.py:21
+#, python-format
+msgid "Unknown operators: %(ops)s"
+msgstr "Белгісіз операторлар: %(ops)s"
+
+#: agro_operation/validators.py:30
+msgid "Must be a float number or integer (e.g. 1, 2, 10.0, 10.5)."
+msgstr "Мәні бүтін немесе қалқымалы сан болуы тиіс (мысалы: 1, 2, 10.0, 10.5)."
+
+#: agro_operation/validators.py:38
+msgid "Do not mix 'eq' with range operators in the same condition or ne."
+msgstr "Бір шартта 'eq' операторын диапазон операторларымен бірге қолдануға болмайды."
+
+#: culture/serializers.py:40
+msgid "Expected an object."
+msgstr "Нысан (object) күтіледі."
+
+#: culture/serializers.py:50
+#, python-format
+msgid "Unknown option keys: %(keys)s"
+msgstr "Белгісіз options кілттері: %(keys)s"
+
+#: culture/serializers.py:57
+msgid "Expected a float."
+msgstr "Қалқымалы сан күтіледі."
+
+#: culture/serializers.py:72
+#, python-format
+msgid "Unknown NPK removal keys: %(keys)s"
+msgstr "NPK шығарылымының белгісіз кілттері: %(keys)s"
+
+#: culture/serializers.py:83
+#, python-format
+msgid "Missing NPK removal keys: %(keys)s"
+msgstr "NPK шығарылымының кілттері жетіспейді: %(keys)s"
+
+#: fertilizer/views.py
+msgid "Mineral fertilizer utilization coefficient cannot be zero."
+msgstr "Минералды тыңайтқыштан пайдалану коэффициенті нөл болмауы тиіс."
+
+#: fertilizer/views.py
+msgid "NPK removal must be an object."
+msgstr "NPK шығарылымы нысан (object) болуы тиіс."
+
+#: fertilizer/views.py
+#, python-format
+msgid "NPK removal for %(nutrient)s is not filled."
+msgstr "%(nutrient)s үшін NPK шығарылымы толтырылмаған."
+
+#: fertilizer/views.py
+#, python-format
+msgid "NPK removal for %(nutrient)s must be a number."
+msgstr "%(nutrient)s үшін NPK шығарылымы сан болуы тиіс."
+
+#: animal/serializers.py:46
+msgid "Animal with this tag already exists."
+msgstr "Осы бирка нөмірі бар жануар бұрыннан бар."
+
+#: core/serializer.py:136
+msgid "This field is required."
+msgstr "Бұл өріс міндетті."
+
+#: core/serializer.py:156
+msgid "This field cannot be empty for required translations."
+msgstr "Міндетті аудармалар үшін бұл өріс бос болмауы тиіс."
+
+#: field/serializers.py:32
+msgid "Field with this number already exists."
+msgstr "Осы нөмірі бар алқап бұрыннан бар."
+
+#: machinery/serializers.py:58
+msgid "Machinery with this government number already exists."
+msgstr "Осы мемлекеттік тіркеу нөмірі бар техника жүйеде бұрыннан тіркелген."
+
+#: personal/serializers.py:13
+msgid "working"
+msgstr "Жұмыс істеп жатыр"
+
+#: personal/serializers.py:14
+msgid "vacation"
+msgstr "Демалыста"
+
+#: personal/serializers.py:15
+msgid "fired"
+msgstr "Жұмыстан шығарылған"
+
+#: personal/serializers.py:95
+msgid "email already exists"
+msgstr "Бұл электрондық пошта бұрыннан бар"
+
+#: personal/serializers.py:102
+msgid "password is same as previous password"
+msgstr "Құпия сөз бұрынғы құпия сөзбен бірдей."
+
+#: personal/serializers.py:148
+msgid "Firing date cannot be earlier than hiring date."
+msgstr "Жұмыстан шығару күні жұмысқа қабылдау күнінен ерте болмауы тиіс."
+
+#: personal/serializers.py:155
+msgid "Status FIRED requires firing_date."
+msgstr "FIRED мәртебесі үшін жұмыстан шығару күнін көрсету қажет."
+
+#: personal/serializers.py:163
+msgid "FIRED status cannot have empty firing_date."
+msgstr "FIRED мәртебесінде жұмыстан шығару күні бос болмауы тиіс."
+
+#: personal/serializers.py:169
+msgid "If firing_date is set, status must be FIRED."
+msgstr ""
+"Егер жұмыстан шығу күні (firing_date) көрсетілсе, мәртебе FIRED болуы тиіс."
+
+#: personal/serializers.py:177
+#, python-format
+msgid "Cannot change %(fields)s for a fired employee."
+msgstr ""
+"Жұмыстан шығарылған қызметкер үшін %(fields)s өрістерін өзгертуге болмайды."
+
+#: notification/tasks.py:52
+msgid "Suitable agro operation found"
+msgstr "Сәйкес агрооперация табылды"
+
+#: notification/tasks/messages.py:53
+#, python-format
+msgid "At %(time)s on field \"%(field)s\" optimal conditions are met for operation \"%(operation)s\" for culture variety \"%(culture)s\"."
+msgstr "%(time)s уақытында \"%(field)s\" алқабында \"%(culture)s\" сорты үшін \"%(operation)s\" операциясына оңтайлы жағдайлар орындалады."
+
+#: notification/serializers.py:35
+#, python-format
+msgid "Missing required params: %(keys)s"
+msgstr "Міндетті параметрлер жетіспейді: %(keys)s"
+
+#: notification/serializers.py:39
+msgid "Unknown field_id"
+msgstr "Белгісіз field_id"
+
+#: notification/serializers.py:41
+msgid "Unknown culture_variety_id"
+msgstr "Белгісіз culture_variety_id"
+
+#: notification/serializers.py:43
+msgid "Unknown operation_id"
+msgstr "Белгісіз operation_id"
+
+#: notification/serializers.py:53
+msgid "Duplicate notification setting"
+msgstr "Мұндай хабарлама баптауы бұрыннан бар"
+
+#: notification/serializers.py:38
+msgid "Minimum look ahead hours cannot exceed maximum look ahead hours"
+msgstr "Алға қараудың минималды сағаты максималды сағаттан көп болмауы тиіс"
+
+#~ msgid "Must be a number (int/float)."
+#~ msgstr "Сан болуы тиіс (int немесе float)."

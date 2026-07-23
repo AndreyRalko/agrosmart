@@ -1,0 +1,41 @@
+stages: [build, deploy]
+
+variables:
+  IMAGE_REPO: "$REGISTRY_HOST/agro/backend"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+  DOCKER_TLS_CERTDIR: ""
+
+build_backend:
+  stage: build
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      command: ["--insecure-registry=$REGISTRY_HOST"]
+  script:
+    - echo "$REGISTRY_PASS" | docker login "$REGISTRY_HOST" -u "$REGISTRY_USER" --password-stdin
+    - docker build -t "$IMAGE_REPO:$IMAGE_TAG" .
+    - docker push "$IMAGE_REPO:$IMAGE_TAG"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+
+deploy_prod:
+  stage: deploy
+  image: curlimages/curl:8.6.0
+  script:
+    - |
+      set -e
+
+      RESP="$(curl -sS -X POST \
+        -F token="$INFRA_TRIGGER_TOKEN" \
+        -F ref="main" \
+        -F "variables[ENV]=prod" \
+        -F "variables[BACKEND_TAG]=$IMAGE_TAG" \
+        "https://gitlab.com/api/v4/projects/${INFRA_PROJECT_ID}/trigger/pipeline")"
+
+      echo "$RESP"
+
+      echo "$RESP" | grep -q '"message"' && exit 1 || true
+      echo "$RESP" | grep -q '"error"' && exit 1 || true
+  when: manual
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

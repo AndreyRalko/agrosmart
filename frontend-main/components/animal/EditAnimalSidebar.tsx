@@ -1,0 +1,232 @@
+'use client';
+
+import { useState, FormEvent, ChangeEvent, useEffect } from 'react';
+import { updateAnimal, deleteAnimal } from '@/lib/api/animal/animal';
+import { getAnimalBreeds } from '@/lib/api/animal/breed';
+import { useTranslation } from '@/lib/hooks/useTranslation';
+import { parseApiError } from '@/lib/utils/error-parser';
+import type { Animal, AnimalUpdate } from '@/lib/types/animal/animal';
+import type { AnimalBreed } from '@/lib/types/animal/breed';
+import SearchableSelect from '@/components/SearchableSelect';
+
+interface EditAnimalSidebarProps {
+  isOpen: boolean;
+  animal: Animal | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+export default function EditAnimalSidebar({ isOpen, animal, onClose, onSuccess }: EditAnimalSidebarProps) {
+  const { t } = useTranslation();
+  const [formData, setFormData] = useState<AnimalUpdate>({
+    breed_id: 0,
+    birthday: '',
+    tag: '',
+    daily_yield_litre: 0,
+  });
+  const [breeds, setBreeds] = useState<AnimalBreed[]>([]);
+  const [breedSearchTerm, setBreedSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (isOpen) {
+      loadBreeds();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (animal) {
+      setFormData({
+        breed_id: animal.breed.id,
+        birthday: animal.birthday,
+        tag: animal.tag,
+        daily_yield_litre: animal.daily_yield_litre,
+      });
+      setBreedSearchTerm(animal.breed.name);
+    }
+  }, [animal]);
+
+  const loadBreeds = async () => {
+    try {
+      const data = await getAnimalBreeds();
+      const list = Array.isArray(data) ? data : data.results || [];
+      setBreeds(list);
+    } catch (err) {
+      console.error('Failed to load breeds:', err);
+    }
+  };
+
+  const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name === 'daily_yield_litre' ? parseFloat(value) || 0 : value
+    }));
+    if (error) setError('');
+  };
+
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!animal) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await updateAnimal(animal.id, formData);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      console.error('API Error:', err);
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!animal || !confirm('Вы уверены что хотите удалить это животное?')) return;
+
+    setLoading(true);
+    setError('');
+
+    try {
+      await deleteAnimal(animal.id);
+      onSuccess();
+      onClose();
+    } catch (err) {
+      setError(parseApiError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!isOpen || !animal) return null;
+
+  return (
+    <>
+      {/* Overlay */}
+      <div 
+        className="fixed inset-0 bg-black bg-opacity-40 z-40"
+      />
+
+      {/* Sidebar */}
+      <div className="fixed inset-0 md:inset-auto md:right-0 md:top-0 md:h-screen md:w-[400px] bg-white md:border-l border-neutral-200 z-50 overflow-y-auto">
+        <div className="p-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-200">
+            <h2 className="text-lg font-semibold text-neutral-900">Редактировать животное</h2>
+            <button
+              onClick={onClose}
+              className="text-neutral-500 hover:text-neutral-900 transition-colors"
+              aria-label={t('close')}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="mb-4 p-3 bg-red-50 border-l-4 border-red-600 text-red-800 text-sm">
+              {error}
+            </div>
+          )}
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <SearchableSelect
+              label="Порода"
+              options={breeds.map(breed => ({
+                id: breed.id,
+                label: breed.name
+              }))}
+              value={breedSearchTerm}
+              onChange={(id, label) => {
+                setFormData(prev => ({ ...prev, breed_id: id }));
+                setBreedSearchTerm(label);
+              }}
+              placeholder={t('search')}
+              required
+            />
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                Дата рождения {t('requiredField')}
+              </label>
+              <input
+                type="date"
+                name="birthday"
+                value={formData.birthday || ''}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-white border border-neutral-300 text-neutral-900 text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                Метка (тег) {t('requiredField')}
+              </label>
+              <input
+                type="text"
+                name="tag"
+                value={formData.tag || ''}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-white border border-neutral-300 text-neutral-900 text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-neutral-700 mb-1.5">
+                Суточный удой (литры) {t('requiredField')}
+              </label>
+              <input
+                type="number"
+                name="daily_yield_litre"
+                value={formData.daily_yield_litre || ''}
+                onChange={handleChange}
+                required
+                min="0"
+                step="0.1"
+                className="w-full px-3 py-2 bg-white border border-neutral-300 text-neutral-900 text-sm focus:outline-none focus:border-neutral-900 transition-colors"
+              />
+            </div>
+
+            <div className="pt-4 border-t border-neutral-200">
+              <button
+                type="button"
+                onClick={handleDelete}
+                disabled={loading}
+                className="w-full px-4 py-2.5 bg-red-50 text-red-600 text-sm font-medium hover:bg-red-100 transition-colors disabled:bg-neutral-100 disabled:text-neutral-400"
+              >
+                {t('delete')} животное
+              </button>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-3 pt-6">
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex-1 px-4 py-2.5 border border-neutral-300 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 px-4 py-2.5 bg-neutral-900 text-white text-sm font-medium hover:bg-neutral-800 disabled:bg-neutral-400 transition-colors"
+              >
+                {loading ? t('saving') : t('save')}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,189 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-02 00:02+0500\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n"
+"%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || (n"
+"%100>=11 && n%100<=14)? 2 : 3);\n"
+
+#: agro/settings.py:149
+msgid "Русский"
+msgstr "Русский"
+
+#: agro/settings.py:150
+msgid "Қазақша"
+msgstr "Казахский"
+
+#: agro_operation/validators.py:12
+msgid "Must be a JSON object."
+msgstr "Должен быть JSON-объектом."
+
+#: agro_operation/validators.py:14
+msgid "This field cannot be empty."
+msgstr "Это поле не может быть пустым для обязательных переводов."
+
+#: agro_operation/validators.py:21
+#, python-format
+msgid "Unknown operators: %(ops)s"
+msgstr "Неизвестные операторы: %(ops)s"
+
+#: agro_operation/validators.py:30
+msgid "Must be a float number or integer (e.g. 1, 2, 10.0, 10.5)."
+msgstr "Значение должно быть целым или вещественным числом (например: 1, 2, 10.0, 10.5)."
+
+#: agro_operation/validators.py:38
+msgid "Do not mix 'eq' with range operators in the same condition or ne."
+msgstr "Нельзя использовать оператор '=' вместе с диапазонными операторами в одном условии или с '≠'."
+
+
+#: culture/serializers.py:40
+msgid "Expected an object."
+msgstr "Ожидается объект."
+
+#: culture/serializers.py:50
+#, python-format
+msgid "Unknown option keys: %(keys)s"
+msgstr "Неизвестные ключи options: %(keys)s"
+
+#: culture/serializers.py:57
+msgid "Expected a float."
+msgstr "Ожидается число с плавающей точкой."
+
+#: culture/serializers.py:72
+#, python-format
+msgid "Unknown NPK removal keys: %(keys)s"
+msgstr "Неизвестные ключи выноса NPK: %(keys)s"
+
+#: culture/serializers.py:83
+#, python-format
+msgid "Missing NPK removal keys: %(keys)s"
+msgstr "Отсутствуют ключи выноса NPK: %(keys)s"
+
+#: fertilizer/views.py
+msgid "Mineral fertilizer utilization coefficient cannot be zero."
+msgstr "Коэффициент использования из минерального удобрения не может быть нулевым."
+
+#: fertilizer/views.py
+msgid "NPK removal must be an object."
+msgstr "Вынос NPK должен быть объектом."
+
+#: fertilizer/views.py
+#, python-format
+msgid "NPK removal for %(nutrient)s is not filled."
+msgstr "Вынос NPK для %(nutrient)s не заполнен."
+
+#: fertilizer/views.py
+#, python-format
+msgid "NPK removal for %(nutrient)s must be a number."
+msgstr "Вынос NPK для %(nutrient)s должен быть числом."
+
+#: animal/serializers.py:46
+msgid "Animal with this tag already exists."
+msgstr "Животное с таким номером бирки уже существует."
+
+#: core/serializer.py:136
+msgid "This field is required."
+msgstr "Это поле обязательно."
+
+#: core/serializer.py:156
+msgid "This field cannot be empty for required translations."
+msgstr "Это поле не может быть пустым для обязательных переводов."
+
+#: field/serializers.py:32
+msgid "Field with this number already exists."
+msgstr "Поле с таким номером уже существует."
+
+#: machinery/serializers.py:58
+msgid "Machinery with this government number already exists."
+msgstr "Техника с таким государственным номером уже существует."
+
+#: personal/serializers.py:13
+msgid "working"
+msgstr "Работает"
+
+#: personal/serializers.py:14
+msgid "vacation"
+msgstr "В отпуске"
+
+#: personal/serializers.py:15
+msgid "fired"
+msgstr "Уволен"
+
+#: personal/serializers.py:95
+msgid "email already exists"
+msgstr "Данная почта уже существует"
+
+#: personal/serializers.py:102
+msgid "password is same as previous password"
+msgstr "Пароль совпадает с предыдущим паролем."
+
+#: personal/serializers.py:148
+msgid "Firing date cannot be earlier than hiring date."
+msgstr "Дата увольнения не может быть раньше даты приема на работу."
+
+#: personal/serializers.py:155
+msgid "Status FIRED requires firing_date."
+msgstr "Статус FIRED требует указания даты увольнения."
+
+#: personal/serializers.py:163
+msgid "FIRED status cannot have empty firing_date."
+msgstr "При статусе FIRED дата увольнения не может быть пустой."
+
+#: personal/serializers.py:169
+msgid "If firing_date is set, status must be FIRED."
+msgstr "Если указана дата увольнения (firing_date), статус должен быть FIRED."
+
+#: personal/serializers.py:177
+#, python-format
+msgid "Cannot change %(fields)s for a fired employee."
+msgstr "Нельзя изменять поля %(fields)s для уволенного сотрудника."
+
+#: notification/tasks.py:52
+msgid "Suitable agro operation found"
+msgstr "Найдена подходящая агрооперация"
+
+#: notification/tasks/messages.py:53
+#, python-format
+msgid "At %(time)s on field \"%(field)s\" optimal conditions are met for operation \"%(operation)s\" for culture variety \"%(culture)s\"."
+msgstr "В %(time)s на поле \"%(field)s\" выполняются оптимальные условия для операции \"%(operation)s\" для сорта культуры \"%(culture)s\"."
+
+#: notification/serializers.py:35
+#, python-format
+msgid "Missing required params: %(keys)s"
+msgstr "Отсутствуют обязательные параметры: %(keys)s"
+
+#: notification/serializers.py:39
+msgid "Unknown field_id"
+msgstr "Неизвестный field_id"
+
+#: notification/serializers.py:41
+msgid "Unknown culture_variety_id"
+msgstr "Неизвестный culture_variety_id"
+
+#: notification/serializers.py:43
+msgid "Unknown operation_id"
+msgstr "Неизвестный operation_id"
+
+#: notification/serializers.py:53
+msgid "Duplicate notification setting"
+msgstr "Такая настройка уведомления уже существует"
+
+#: notification/serializers.py:38
+msgid "Minimum look ahead hours cannot exceed maximum look ahead hours"
+msgstr "Минимальное количество часов вперёд не может быть больше максимального"
+
+#~ msgid "Must be a number (int/float)."
+#~ msgstr "Должно быть числом (int или float)."

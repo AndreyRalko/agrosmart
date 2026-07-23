@@ -1,0 +1,2 @@
+class TimelineNotFoundException(Exception):
+    pass

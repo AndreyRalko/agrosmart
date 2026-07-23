@@ -1,0 +1,47 @@
+stages: [build, deploy]
+
+variables:
+  IMAGE_REPO: "$REGISTRY_HOST/agro/frontend"
+  IMAGE_TAG: "$CI_COMMIT_SHORT_SHA"
+  DOCKER_TLS_CERTDIR: ""
+
+build_frontend:
+  stage: build
+  image: docker:27
+  services:
+    - name: docker:27-dind
+      command: ["--insecure-registry=176.12.72.220:5000"]
+  variables:
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    REGISTRY_HOST: "176.12.72.220:5000"
+  script:
+    - echo "$REGISTRY_PASS" | docker login 176.12.72.220:5000 -u "$REGISTRY_USER" --password-stdin
+    - printf 'NEXT_PUBLIC_API_URL=https://api.agrosmartua.kz\n' > .env
+    - docker build -t "176.12.72.220:5000/agro/frontend:$IMAGE_TAG" .
+    - docker push "176.12.72.220:5000/agro/frontend:$IMAGE_TAG"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+deploy_prod_trigger_infra:
+  stage: deploy
+  image: curlimages/curl:8.6.0
+  script:
+    - |
+      set -e
+
+      RESP="$(curl -sS -X POST \
+        -F token="$INFRA_TRIGGER_TOKEN" \
+        -F ref="main" \
+        -F "variables[ENV]=prod" \
+        -F "variables[FRONTEND_TAG]=$IMAGE_TAG" \
+        "https://gitlab.com/api/v4/projects/${INFRA_PROJECT_ID}/trigger/pipeline")"
+
+      echo "$RESP"
+
+      echo "$RESP" | grep -q '"message"' && exit 1 || true
+      echo "$RESP" | grep -q '"error"' && exit 1 || true
+  when: manual
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
