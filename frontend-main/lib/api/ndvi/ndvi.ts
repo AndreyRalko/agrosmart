@@ -1,3 +1,4 @@
+import { apiClient } from '../client';
 import { getAccessToken } from '../auth';
 import { buildApiUrl } from '../api-url';
 
@@ -11,6 +12,46 @@ export interface NdviStats {
 export interface NdviUploadResult {
   imageUrl: string;
   stats: NdviStats;
+}
+
+export interface NdviMapField {
+  field_id: number;
+  field_no: string;
+  square: number;
+  ndvi_mean: number;
+  bounds: [number, number, number, number];
+  image: string;
+}
+
+export interface NdviMapResponse {
+  requested_date: string;
+  scene_date: string | null;
+  scene_id: string | null;
+  cloud_cover: number | null;
+  fields: NdviMapField[];
+  error?: string;
+}
+
+export function getNdviMap(date: string): Promise<NdviMapResponse> {
+  return apiClient<NdviMapResponse>(`api/ndvi/map/?date=${date}`);
+}
+
+export interface NdviHistoryPoint {
+  date: string;
+  ndvi_mean: number;
+  source: string;
+  cloud_cover: number | null;
+}
+
+export interface NdviHistoryResponse {
+  field_id: number;
+  field_no: string;
+  square: number;
+  points: NdviHistoryPoint[];
+}
+
+export function getNdviHistory(fieldId: number): Promise<NdviHistoryResponse> {
+  return apiClient<NdviHistoryResponse>(`api/ndvi/history/?field=${fieldId}`);
 }
 
 export async function uploadNdvi(file: File): Promise<NdviUploadResult> {

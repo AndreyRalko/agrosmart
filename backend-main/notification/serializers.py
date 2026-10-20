@@ -5,6 +5,8 @@ from agro_operation.models import Operation
 from core.serializer import TranslationSerializerReqLangMixinV2
 from culture.models import CultureVariety
 from field.models import Field
+from personal.permissions_service import get_user_person
+
 from .models import Notification, NotificationAgroOpField, NotificationSetting, NotificationType
 
 
@@ -30,7 +32,11 @@ class NotificationSettingSerializer(serializers.ModelSerializer):
 
         notification_type = attrs.get("type", getattr(self.instance, "type", None))
         params = attrs.get("params", getattr(self.instance, "params", {}))
-        person = getattr(self.instance, "person", None) or self.context["request"].user.person
+        person = getattr(self.instance, "person", None)
+        if person is None and "request" in self.context:
+            person = get_user_person(self.context["request"].user)
+        if person is None:
+            raise serializers.ValidationError("У пользователя нет карточки сотрудника")
         min_look_ahead_hours = attrs.get(
             "min_look_ahead_hours",
             getattr(self.instance, "min_look_ahead_hours", 0),

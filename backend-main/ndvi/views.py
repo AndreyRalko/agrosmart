@@ -1,3 +1,6 @@
+import logging
+from datetime import date
+
 from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiParameter
 from rest_framework.parsers import MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +10,12 @@ from rest_framework.response import Response
 
 from core.drf_permissions import ModulePermission
 
+logger = logging.getLogger(__name__)
+
+from field.models import Field
+
 from .models import DroneUpload
+from .preview import build_ndvi_map, get_field_history
 from .serializers import DroneUploadSerializer, DroneUploadCreateSerializer
 from .services import save_drone_upload
 from .sentinel import get_sentinel_image
@@ -77,6 +85,49 @@ class DroneUploadView(APIView):
         return Response(
             DroneUploadSerializer(qs, many=True, context={'request': request}).data
         )
+
+class NdviMapView(APIView):
+    permission_classes = [IsAuthenticated, ModulePermission]
+    module_key = "ndvi"
+
+    @extend_schema(tags=["ndvi"])
+    def get(self, request):
+        raw = request.query_params.get("date")
+        try:
+            day = date.fromisoformat(raw) if raw else date.today()
+        except ValueError:
+            return Response({"error": "Некорректная дата"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            return Response(build_ndvi_map(day))
+        except ValueError as exc:
+            return Response({"error": str(exc), "fields": []}, status=status.HTTP_200_OK)
+        except Exception:
+            logger.exception("NDVI map render failed")
+            return Response(
+                {"error": "Не удалось получить снимок Sentinel-2", "fields": []},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+
+
+class NdviHistoryView(APIView):
+    permission_classes = [IsAuthenticated, ModulePermission]
+    module_key = "ndvi"
+
+    @extend_schema(tags=["ndvi"])
+    def get(self, request):
+        raw = request.query_params.get("field")
+        try:
+            field_id = int(raw)
+        except (TypeError, ValueError):
+            return Response({"error": "Укажите поле"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            return Response(get_field_history(field_id))
+        except Field.DoesNotExist:
+            return Response({"error": "Поле не найдено"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception:
+            logger.exception("NDVI history failed")
+            return Response({"error": "Не удалось собрать историю NDVI"}, status=status.HTTP_502_BAD_GATEWAY)
+
 
 class SentinelDownloadView(APIView):
     permission_classes = [IsAuthenticated, ModulePermission]

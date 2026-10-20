@@ -1,7 +1,9 @@
 from rest_framework import viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 
 from core.drf_permissions import ModulePermission
+from personal.permissions_service import get_user_person
 
 from .models import Notification, NotificationSetting
 from .serializers import (
@@ -18,14 +20,20 @@ class NotificationSettingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ModulePermission]
 
     def get_queryset(self):
+        person = get_user_person(self.request.user)
+        if person is None:
+            return NotificationSetting.objects.none()
         return (
             NotificationSetting.objects.select_related("person")
-            .filter(person=self.request.user.person)
+            .filter(person=person)
             .order_by("id")
         )
 
     def perform_create(self, serializer):
-        setting = serializer.save(person=self.request.user.person)
+        person = get_user_person(self.request.user)
+        if person is None:
+            raise ValidationError({"detail": "У пользователя нет карточки сотрудника"})
+        setting = serializer.save(person=person)
         run_notification_setting_check.delay(setting.id)
 
 
@@ -35,9 +43,12 @@ class NotificationViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated, ModulePermission]
 
     def get_queryset(self):
+        person = get_user_person(self.request.user)
+        if person is None:
+            return Notification.objects.none()
         return (
             Notification.objects.select_related("setting", "agro_op_field")
-            .filter(person=self.request.user.person)
+            .filter(person=person)
             .order_by("-created_at", "-id")
         )
 
@@ -49,4 +60,7 @@ class NotificationStatusViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated, ModulePermission]
 
     def get_queryset(self):
-        return Notification.objects.filter(person=self.request.user.person).order_by("-created_at", "-id")
+        person = get_user_person(self.request.user)
+        if person is None:
+            return Notification.objects.none()
+        return Notification.objects.filter(person=person).order_by("-created_at", "-id")

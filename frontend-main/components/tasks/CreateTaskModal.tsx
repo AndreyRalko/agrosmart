@@ -15,9 +15,11 @@ import { getLastIntegrationDataField } from '@/lib/api/integration/integration-d
 import { getIntegrations } from '@/lib/api/integration/integration';
 import type { TaskCreate, TaskConditionError } from '@/lib/types/tasks/task';
 import type { VarietyCustom } from '@/lib/types/culture-operations/custom-variety';
+import type { ConditionValues } from '@/lib/types/agro-operations/condition';
 import type { AgroField } from '@/lib/types/agro-operations/field';
 import type { IntegrationDataField } from '@/lib/types/integration/integration-data-field';
-import { getMetricLabel, formatMetricValueWithUnit } from '@/lib/constants/integration-metrics';
+import type { VarietyOperationField } from '@/lib/api/agro-operations/custom';
+import { getMetricLabel, formatMetricValueWithUnit, isFractionMetric } from '@/lib/constants/integration-metrics';
 import { defaultValueFromCondition, formatConditionRangeHint } from '@/lib/utils/condition-defaults';
 import { getCurrentDt } from '@/lib/utils/datetime';
 
@@ -35,22 +37,81 @@ interface SelectOption {
 interface LatLng { lat: number; lng: number; }
 type PickingPoint = 'A' | 'B' | null;
 
-function getWeatherSuggestion(data: Record<string, number | null>): { ok: boolean; text: string } {
-  const temp = data.temperature_c;
-  const wind = data.wind_speed_m_s;
-  const rain = data.precipitation_probability_percent;
-  const humidity = data.humidity_percent;
-  const issues: string[] = [];
-  if (temp !== null && temp !== undefined) {
-    if (temp < 0) issues.push(`мороз ${temp}°C`);
-    else if (temp < 5) issues.push(`холодно (${temp}°C)`);
-    else if (temp > 35) issues.push(`жара (${temp}°C)`);
+interface WeatherConditionRule {
+  integrationId: number;
+  metricKey: string;
+  label: string;
+  values: ConditionValues;
+}
+
+function normalizeMetric(metricKey: string, value: number): number {
+  if (isFractionMetric(metricKey) && value > 1) return value / 100;
+  return value;
+}
+
+function normalizedCondition(metricKey: string, values: ConditionValues): ConditionValues {
+  const normalized: ConditionValues = {};
+  for (const [op, limit] of Object.entries(values) as Array<[keyof ConditionValues, number | undefined]>) {
+    if (limit == null || Number.isNaN(Number(limit))) continue;
+    normalized[op] = normalizeMetric(metricKey, Number(limit));
   }
-  if (wind !== null && wind !== undefined && wind > 10) issues.push(`сильный ветер ${wind} м/с`);
-  if (rain !== null && rain !== undefined && rain > 70) issues.push(`высокая вероятность осадков ${rain}%`);
-  if (humidity !== null && humidity !== undefined && humidity > 90) issues.push(`очень высокая влажность ${humidity}%`);
+  return normalized;
+}
+
+function valueMatchesCondition(value: number, values: ConditionValues): boolean {
+  const checks: Array<[keyof ConditionValues, (current: number, limit: number) => boolean]> = [
+    ['eq', (current, limit) => current === limit],
+    ['ne', (current, limit) => current !== limit],
+    ['gt', (current, limit) => current > limit],
+    ['gte', (current, limit) => current >= limit],
+    ['lt', (current, limit) => current < limit],
+    ['lte', (current, limit) => current <= limit],
+  ];
+  return checks.every(([op, pass]) => {
+    const limit = values[op];
+    if (limit == null || Number.isNaN(Number(limit))) return true;
+    return pass(value, Number(limit));
+  });
+}
+
+function weatherRulesFromCultureFields(fields: VarietyOperationField[]): WeatherConditionRule[] {
+  return fields.flatMap(field => {
+    if (field.type !== 0) return [];
+    const metricKey = field.integration_field?.field_name;
+    const integrationId = field.integration?.id;
+    const values = field.conditions?.[0]?.values;
+    if (!metricKey || integrationId == null || !values || Object.keys(values).length === 0) {
+      return [];
+    }
+    return [{
+      integrationId,
+      metricKey,
+      label: field.name_ru || field.name || getMetricLabel(metricKey),
+      values: normalizedCondition(metricKey, values),
+    }];
+  });
+}
+
+function getWeatherSuggestion(
+  readings: Record<number, Record<string, number | null>>,
+  rules: WeatherConditionRule[],
+): { ok: boolean; text: string } | null {
+  if (rules.length === 0) return null;
+  const issues: string[] = [];
+  for (const rule of rules) {
+    const required = formatConditionRangeHint(rule.values, rule.metricKey);
+    const raw = readings[rule.integrationId]?.[rule.metricKey];
+    if (raw == null || Number.isNaN(Number(raw))) {
+      issues.push(`${rule.label}: нет данных (требуется ${required})`);
+      continue;
+    }
+    const value = normalizeMetric(rule.metricKey, Number(raw));
+    if (!valueMatchesCondition(value, rule.values)) {
+      issues.push(`${rule.label}: сейчас ${formatMetricValueWithUnit(rule.metricKey, value)}, требуется ${required}`);
+    }
+  }
   if (issues.length === 0) return { ok: true, text: 'Погодные условия благоприятны для проведения работ' };
-  return { ok: false, text: `Неблагоприятные условия: ${issues.join(', ')}` };
+  return { ok: false, text: `Неблагоприятные условия: ${issues.join('; ')}` };
 }
 
 const CONDITION_OPERATOR_LABELS: Record<string, string> = {
@@ -115,7 +176,10 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
   const [fieldConditionHints, setFieldConditionHints] = useState<Record<number, string>>({});
   const [isTransportation, setIsTransportation] = useState(false);
   const [weather, setWeather] = useState<IntegrationDataField | null>(null);
+  const [sensorReadings, setSensorReadings] = useState<Record<number, Record<string, number | null>>>({});
+  const [weatherRules, setWeatherRules] = useState<WeatherConditionRule[]>([]);
   const [weatherIntegrationId, setWeatherIntegrationId] = useState<number | null>(null);
+  const [sensorIntegrationIds, setSensorIntegrationIds] = useState<number[]>([]);
   const [loadingWeather, setLoadingWeather] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [loadingVarieties, setLoadingVarieties] = useState(false);
@@ -183,16 +247,20 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
 
   useEffect(() => {
     if (!formData.operation || !formData.culture_variety) {
-      setManualFields([]); setFieldValues({}); setFieldConditionHints({}); setIsTransportation(false);
+      setManualFields([]); setFieldValues({}); setFieldConditionHints({}); setWeatherRules([]); setIsTransportation(false);
       return;
     }
     loadOperationFields(Number(formData.operation), Number(formData.culture_variety));
   }, [formData.operation, formData.culture_variety]);
 
   useEffect(() => {
-    if (!formData.physical_field || !weatherIntegrationId) { setWeather(null); return; }
-    loadWeather(Number(formData.physical_field));
-  }, [formData.physical_field, weatherIntegrationId]);
+    if (!formData.physical_field || sensorIntegrationIds.length === 0) {
+      setWeather(null);
+      setSensorReadings({});
+      return;
+    }
+    loadFieldSensors(Number(formData.physical_field));
+  }, [formData.physical_field, sensorIntegrationIds]);
 
   const initMap = async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -241,8 +309,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
       setCultures((culturesRes.results || []).map(c => ({ id: c.id, label: c.name_ru || c.name })));
       setFields((fieldsRes.results || []).map(f => ({ id: f.id, label: `Поле №${f.no}` })));
       setMachineryList((machineryRes.results || []).map(m => ({ id: m.id, label: `${m.brand?.name ?? ''} ${m.gov_num}`.trim() })));
-      const weatherIntegration = (integrationsRes.results || []).find(i => i.api === 'tomorrow.io');
-      setWeatherIntegrationId(weatherIntegration?.id ?? null);
+      const sensorIntegrations = (integrationsRes.results || []).filter(
+        i => i.api === 'tomorrow.io' || i.api === 'stormglass.io',
+      );
+      setSensorIntegrationIds(sensorIntegrations.map(i => i.id));
+      setWeatherIntegrationId(sensorIntegrations.find(i => i.api === 'tomorrow.io')?.id ?? null);
     } catch {
       setError('Ошибка загрузки данных');
     } finally {
@@ -311,31 +382,50 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
       setManualFields(manual);
       setFieldValues(initial);
       setFieldConditionHints(hints);
+      setWeatherRules(weatherRulesFromCultureFields(cultureOp?.fields ?? []));
       setIsTransportation(!!op.is_transportation);
     } catch {
       setManualFields([]);
       setFieldConditionHints({});
+      setWeatherRules([]);
       setIsTransportation(false);
     } finally {
       setLoadingFields(false);
     }
   };
 
-  const loadWeather = async (fieldId: number) => {
-    if (!weatherIntegrationId) {
+  const loadFieldSensors = async (fieldId: number) => {
+    if (sensorIntegrationIds.length === 0) {
       setWeather(null);
+      setSensorReadings({});
       return;
     }
-    setLoadingWeather(true); setWeather(null);
+    setLoadingWeather(true);
+    setWeather(null);
+    setSensorReadings({});
     try {
-      const data = await getLastIntegrationDataField({
-        integration_id: weatherIntegrationId,
-        field_id: fieldId,
-        dt: getCurrentDt(),
-      });
-      setWeather(data);
-    } catch {
-      setWeather(null);
+      const dt = getCurrentDt();
+      const rows = await Promise.all(sensorIntegrationIds.map(async (integrationId) => {
+        try {
+          const data = await getLastIntegrationDataField({
+            integration_id: integrationId,
+            field_id: fieldId,
+            dt,
+          });
+          return [integrationId, data] as const;
+        } catch {
+          return [integrationId, null] as const;
+        }
+      }));
+      const readings: Record<number, Record<string, number | null>> = {};
+      let tomorrow: IntegrationDataField | null = null;
+      for (const [integrationId, data] of rows) {
+        if (!data) continue;
+        readings[integrationId] = data.data as Record<string, number | null>;
+        if (integrationId === weatherIntegrationId) tomorrow = data;
+      }
+      setSensorReadings(readings);
+      setWeather(tomorrow);
     } finally {
       setLoadingWeather(false);
     }
@@ -371,7 +461,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
     setVarietiesWithOps([]); setVarieties([]); setOperations([]);
     setManualFields([]); setFieldValues({}); setConditionErrors([]);
     setFieldConditionHints({});
-    setError(''); setWeather(null); setIsTransportation(false);
+    setError(''); setWeather(null); setSensorReadings({}); setWeatherRules([]); setIsTransportation(false);
     setSelectedMachinery(''); setFromName(''); setToName('');
     setPointA(null); setPointB(null); setPicking(null); setTransportDescription('');
     if (mapRef.current) {
@@ -431,7 +521,9 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
     (!isTransportation || (pointA && pointB));
 
   const weatherData = weather?.data as Record<string, number | null> | undefined;
-  const weatherSuggestion = weatherData ? getWeatherSuggestion(weatherData) : null;
+  const weatherSuggestion = formData.operation && !loadingFields && !loadingWeather
+    ? getWeatherSuggestion(sensorReadings, weatherRules)
+    : null;
   const formatWeatherTime = (iso: string) => new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
   return (
@@ -508,18 +600,11 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
                         <p className="text-xs font-medium text-blue-700 uppercase tracking-wide">Погода на поле</p>
                         <span className="text-xs text-blue-500">{weather && formatWeatherTime(weather.time)}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-2 mb-3">
+                      <div className="grid grid-cols-3 gap-2">
                         {weatherData.temperature_c != null && <div className="text-center"><div className="text-lg font-semibold text-blue-900">{weatherData.temperature_c}°C</div><div className="text-xs text-blue-600">Температура</div></div>}
                         {weatherData.humidity_percent != null && <div className="text-center"><div className="text-lg font-semibold text-blue-900">{weatherData.humidity_percent}%</div><div className="text-xs text-blue-600">Влажность</div></div>}
                         {weatherData.wind_speed_m_s != null && <div className="text-center"><div className="text-lg font-semibold text-blue-900">{weatherData.wind_speed_m_s} м/с</div><div className="text-xs text-blue-600">Ветер</div></div>}
                       </div>
-                      {weatherSuggestion && (
-                        <div className="flex items-start gap-2 px-3 py-2 text-sm font-medium"
-                          style={weatherSuggestion.ok ? { backgroundColor: '#dcfce7', border: '1px solid #4ade80', color: '#14532d' } : { backgroundColor: '#ffedd5', border: '1px solid #fb923c', color: '#7c2d12' }}>
-                          <span className="mt-0.5 shrink-0">{weatherSuggestion.ok ? '✓' : '⚠'}</span>
-                          <span>{weatherSuggestion.text}</span>
-                        </div>
-                      )}
                     </div>
                   ) : (
                     <div className="p-3 bg-neutral-50 border border-neutral-200 text-sm text-neutral-500">Нет данных о погоде для этого поля</div>
@@ -558,6 +643,14 @@ export default function CreateTaskModal({ isOpen, onClose, onSuccess }: CreateTa
                   {operations.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
                 </select>
               </div>
+
+              {weatherSuggestion && (
+                <div className="flex items-start gap-2 px-3 py-2 text-sm font-medium"
+                  style={weatherSuggestion.ok ? { backgroundColor: '#dcfce7', border: '1px solid #4ade80', color: '#14532d' } : { backgroundColor: '#ffedd5', border: '1px solid #fb923c', color: '#7c2d12' }}>
+                  <span className="mt-0.5 shrink-0">{weatherSuggestion.ok ? '✓' : '⚠'}</span>
+                  <span>{weatherSuggestion.text}</span>
+                </div>
+              )}
 
               {/* Ручные поля */}
               {loadingFields && (

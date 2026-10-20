@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { getFields } from '@/lib/api/field/field';
 import type { Field } from '@/lib/types/field/field';
+import NdviFieldMap from '@/components/ndvi/NdviFieldMap';
+import { getNdviHistory } from '@/lib/api/ndvi/ndvi';
 
 const SOURCES = ['Sentinel-2', 'Landsat', 'Дроны'] as const;
 type Source = typeof SOURCES[number];
@@ -23,37 +25,12 @@ const MOCK_FIELDS = [
   { id: 4, no: '4', name: 'Поле №4', culture: 'Соя', square: 92.7, ndvi: 0.71, ndviOld: 0.51, trend: 'up', risk: 'Низкий', source: 'sentinel-2', updated: '2026-05-22' },
 ];
 
-const MOCK_NDVI: Record<number, number> = { 1: 0.78, 2: 0.52, 3: 0.65, 4: 0.71 };
-const MOCK_NDVI_OLD: Record<number, number> = { 1: 0.42, 2: 0.38, 3: 0.45, 4: 0.51 };
-
-const NDVI_HISTORY: Record<number, { date: string; value: number }[]> = {
-  1: [{ date: '01.04', value: 0.35 }, { date: '15.04', value: 0.48 }, { date: '01.05', value: 0.62 }, { date: '15.05', value: 0.71 }, { date: '22.05', value: 0.78 }],
-  2: [{ date: '01.04', value: 0.55 }, { date: '15.04', value: 0.58 }, { date: '01.05', value: 0.54 }, { date: '15.05', value: 0.52 }, { date: '22.05', value: 0.52 }],
-  3: [{ date: '01.04', value: 0.42 }, { date: '15.04', value: 0.51 }, { date: '01.05', value: 0.58 }, { date: '15.05', value: 0.63 }, { date: '22.05', value: 0.65 }],
-  4: [{ date: '01.04', value: 0.44 }, { date: '15.04', value: 0.55 }, { date: '01.05', value: 0.62 }, { date: '15.05', value: 0.68 }, { date: '22.05', value: 0.71 }],
-};
-
-function getNdviColor(ndvi: number | null): string {
-  if (ndvi === null) return '#1e293b';
-  if (ndvi >= 0.7) return '#16a34a';
-  if (ndvi >= 0.55) return '#4ade80';
-  if (ndvi >= 0.4) return '#f59e0b';
-  return '#ef4444';
-}
 function getNdviDot(ndvi: number): string {
   if (ndvi >= 0.7) return '#16a34a';
   if (ndvi >= 0.55) return '#f59e0b';
   if (ndvi >= 0.4) return '#f59e0b';
   return '#ef4444';
 }
-function getNdviGlow(ndvi: number | null): string {
-  if (ndvi === null) return 'none';
-  if (ndvi >= 0.7) return '0 0 20px 6px rgba(22,163,74,0.2)';
-  if (ndvi >= 0.55) return '0 0 20px 6px rgba(74,222,128,0.15)';
-  if (ndvi >= 0.4) return '0 0 24px 8px rgba(245,158,11,0.35)';
-  return '0 0 24px 8px rgba(239,68,68,0.4)';
-}
-
 // Custom slider
 function RangeSlider({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -92,13 +69,19 @@ function RangeSlider({ value, onChange }: { value: number; onChange: (v: number)
 
 // Mini SVG chart
 function NdviChart({ data }: { data: { date: string; value: number }[] }) {
-  const w = 380, h = 160, pad = 32;
-  const minV = 0.3, maxV = 0.9;
-  const xs = data.map((_, i) => pad + (i / (data.length - 1)) * (w - pad * 2));
-  const ys = data.map(d => h - pad - ((d.value - minV) / (maxV - minV)) * (h - pad * 2));
+  if (data.length === 0) {
+    return <p className="text-sm text-neutral-400 py-8 text-center">Нет наблюдений NDVI</p>;
+  }
+  const w = 380, h = 160, pad = 36;
+  const values = data.map(d => d.value);
+  const minV = Math.max(0, Math.min(...values) - 0.05);
+  const maxV = Math.min(1, Math.max(...values) + 0.05);
+  const span = Math.max(maxV - minV, 0.05);
+  const xs = data.map((_, i) => pad + (data.length === 1 ? (w - pad * 2) / 2 : (i / (data.length - 1)) * (w - pad * 2)));
+  const ys = data.map(d => h - pad - ((d.value - minV) / span) * (h - pad * 2));
   const path = xs.map((x, i) => `${i === 0 ? 'M' : 'L'}${x},${ys[i]}`).join(' ');
   const area = `${path} L${xs[xs.length-1]},${h-pad} L${xs[0]},${h-pad} Z`;
-  const gridLines = [0.3, 0.5, 0.7, 0.9];
+  const gridLines = [minV, minV + span / 2, minV + span];
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} width="100%" style={{ overflow: 'visible' }}>
@@ -107,7 +90,7 @@ function NdviChart({ data }: { data: { date: string; value: number }[] }) {
         return (
           <g key={v}>
             <line x1={pad} y1={y} x2={w - pad} y2={y} stroke="#f1f5f9" strokeWidth={1} />
-            <text x={pad - 4} y={y + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{v}</text>
+            <text x={pad - 4} y={y + 4} textAnchor="end" fontSize={10} fill="#94a3b8">{v.toFixed(2)}</text>
           </g>
         );
       })}
@@ -137,39 +120,67 @@ export default function NdviPage() {
   const [sliderValue, setSliderValue] = useState(100);
   const [heatmap, setHeatmap] = useState(true);
   const [compare, setCompare] = useState(false);
-  const [selectedFieldId, setSelectedFieldId] = useState(1);
+  const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
+  const [historyPoints, setHistoryPoints] = useState<{ date: string; value: number; iso: string }[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState('');
 
-  const sliderStartDate = new Date(); sliderStartDate.setDate(sliderStartDate.getDate() - 60);
+  const sliderStartDate = new Date(); sliderStartDate.setDate(sliderStartDate.getDate() - 120);
   const sliderEndDate = new Date();
   const getSliderDate = (v: number) => new Date(sliderStartDate.getTime() + (v / 100) * (sliderEndDate.getTime() - sliderStartDate.getTime()));
-  const sliderDateStr = getSliderDate(sliderValue).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const toIsoDate = (value: Date) => {
+    const month = String(value.getMonth() + 1).padStart(2, '0');
+    const day = String(value.getDate()).padStart(2, '0');
+    return `${value.getFullYear()}-${month}-${day}`;
+  };
+  const sliderDate = getSliderDate(sliderValue);
+  const sliderDateStr = sliderDate.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const sliderDateIso = toIsoDate(sliderDate);
+  const compareDateIso = toIsoDate(sliderStartDate);
   const sliderLabels = Array.from({ length: 5 }, (_, i) => getSliderDate(i * 25).toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }));
 
   useEffect(() => {
     getFields().then(res => setFields(res.results || [])).catch(() => setFields([])).finally(() => setLoading(false));
   }, []);
 
+  useEffect(() => {
+    if (fields.length > 0 && !fields.some(field => field.id === selectedFieldId)) {
+      setSelectedFieldId(fields[0].id);
+    }
+  }, [fields, selectedFieldId]);
+
+  useEffect(() => {
+    if (activeTab !== 'Карточка' || selectedFieldId == null) return;
+    let cancelled = false;
+    setHistoryLoading(true);
+    setHistoryError('');
+    getNdviHistory(selectedFieldId)
+      .then((data) => {
+        if (cancelled) return;
+        setHistoryPoints(data.points.map((point) => ({
+          iso: point.date,
+          date: `${point.date.slice(8, 10)}.${point.date.slice(5, 7)}`,
+          value: point.ndvi_mean,
+        })));
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setHistoryPoints([]);
+        setHistoryError(err instanceof Error ? err.message : 'Не удалось загрузить историю NDVI');
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, selectedFieldId]);
+
   const toggleSource = (source: Source) => {
     setActiveSources(prev => { const next = new Set(prev); if (next.has(source)) { if (next.size > 1) next.delete(source); } else next.add(source); return next; });
   };
 
   const today = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  const mockFields = fields.length > 0 ? fields : MOCK_FIELDS.map(f => ({ id: f.id, no: f.no, square: f.square } as Field));
-
-  const renderFieldCard = (field: Field, ndviData: Record<number, number>) => {
-    const ndvi = heatmap ? (ndviData[field.id] ?? null) : null;
-    const color = getNdviColor(ndvi);
-    const glow = heatmap ? getNdviGlow(ndvi) : 'none';
-    const isStress = heatmap && ndvi !== null && ndvi < 0.55;
-    return (
-      <div key={field.id} className="rounded-lg flex flex-col items-center justify-center p-4 relative cursor-pointer transition-transform hover:scale-105"
-        style={{ backgroundColor: color, minHeight: '130px', boxShadow: glow, opacity: 0.92, border: heatmap ? 'none' : '1px solid rgba(255,255,255,0.15)' }}>
-        {isStress && <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(circle at 60% 40%, rgba(239,68,68,0.4) 0%, transparent 60%)' }} />}
-        <p className="text-white font-semibold text-sm relative z-10">Поле №{field.no}</p>
-        {heatmap && ndvi !== null ? <p className="text-white text-xs opacity-80 relative z-10 mt-1">NDVI {ndvi}</p> : <p className="text-white text-xs opacity-50 relative z-10 mt-1">Нет данных</p>}
-      </div>
-    );
-  };
 
   // ---- Вкладка Поля ----
   const renderFieldsTab = () => (
@@ -219,31 +230,36 @@ export default function NdviPage() {
 
   // ---- Вкладка Карточка ----
   const renderCardTab = () => {
-    const f = MOCK_FIELDS.find(f => f.id === selectedFieldId) ?? MOCK_FIELDS[0];
-    const history = NDVI_HISTORY[f.id] ?? [];
-    const trend = f.trend === 'up' ? '↑ растёт' : f.trend === 'down' ? '↓ падает' : '→ стабильно';
-    const trendColor = f.trend === 'up' ? '#16a34a' : f.trend === 'down' ? '#ef4444' : '#6b7280';
+    const field = fields.find(item => item.id === selectedFieldId) ?? fields[0];
+    const latest = historyPoints[historyPoints.length - 1];
+    const previous = historyPoints[historyPoints.length - 2];
+    const delta = latest && previous ? latest.value - previous.value : 0;
+    const trend = !latest ? 'нет данных' : !previous ? 'одно наблюдение' : delta > 0.02 ? '↑ растёт' : delta < -0.02 ? '↓ падает' : '→ стабильно';
+    const trendColor = trend.startsWith('↑') ? '#16a34a' : trend.startsWith('↓') ? '#ef4444' : '#6b7280';
+    const mapDate = latest?.iso ?? toIsoDate(new Date());
+
+    if (!field) {
+      return <div className="bg-white border border-neutral-200 p-8 text-sm text-neutral-400">Нет полей</div>;
+    }
 
     return (
       <div className="space-y-4">
-        {/* Header */}
         <div className="bg-white border border-neutral-200 p-5 flex items-start justify-between">
           <div>
-            <h2 className="text-lg font-bold text-neutral-900">{f.name} — {f.culture}</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">{f.square} га · обновлено {f.updated} · источник: {f.source}</p>
+            <h2 className="text-lg font-bold text-neutral-900">Поле {field.no}</h2>
+            <p className="text-xs text-neutral-400 mt-0.5">{field.square} га · Sentinel-2</p>
           </div>
           <select className="px-3 py-1.5 text-sm border border-neutral-200 text-neutral-700 bg-white focus:outline-none"
-            value={selectedFieldId} onChange={e => setSelectedFieldId(Number(e.target.value))}>
-            {MOCK_FIELDS.map(mf => <option key={mf.id} value={mf.id}>{mf.name}</option>)}
+            value={field.id} onChange={e => setSelectedFieldId(Number(e.target.value))}>
+            {fields.map(item => <option key={item.id} value={item.id}>Поле {item.no}</option>)}
           </select>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-4">
           {[
-            { label: 'Средний NDVI', value: String(f.ndvi), sub: trend, subColor: trendColor },
-            { label: 'Проблемных зон', value: f.risk === 'Высокий' ? '3' : f.risk === 'Средний' ? '1' : '0', sub: f.risk === 'Высокий' ? '12.5 га' : f.risk === 'Средний' ? '3.2 га' : '—' },
-            { label: 'Уровень риска', value: f.risk, sub: 'По AI-оценке' },
+            { label: 'Средний NDVI', value: latest ? latest.value.toFixed(2) : '—', sub: trend, subColor: trendColor },
+            { label: 'Наблюдений', value: String(historyPoints.length), sub: 'снимки Sentinel-2' },
+            { label: 'Последний снимок', value: latest ? latest.date : '—', sub: latest ? latest.iso : 'данные из базы' },
           ].map(s => (
             <div key={s.label} className="bg-white border border-neutral-200 p-4">
               <p className="text-xs text-neutral-400 mb-2">{s.label}</p>
@@ -253,37 +269,25 @@ export default function NdviPage() {
           ))}
         </div>
 
-        {/* Chart + Map */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           <div className="bg-white border border-neutral-200 p-5">
             <h3 className="text-sm font-semibold text-neutral-900 mb-4">История NDVI</h3>
-            <NdviChart data={history} />
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-900" />
+              </div>
+            ) : historyError ? (
+              <p className="text-sm text-red-600">{historyError}</p>
+            ) : (
+              <NdviChart data={historyPoints} />
+            )}
           </div>
           <div className="bg-white border border-neutral-200 p-5">
             <h3 className="text-sm font-semibold text-neutral-900 mb-4 flex items-center gap-2">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 13l4.553 2.276A1 1 0 0021 21.382V10.618a1 1 0 00-.553-.894L15 7m0 13V7m0 0L9 4" /></svg>
-              Карта проблемных зон
+              NDVI поля
             </h3>
-            <div className="rounded-lg p-4 relative" style={{ backgroundColor: '#0f172a', minHeight: '220px' }}>
-              <div className="absolute top-3 right-3 text-xs px-2 py-1 rounded" style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>📅 22.05.2026</div>
-              <div className="flex items-center justify-center h-full py-6">
-                <div className="rounded-lg flex flex-col items-center justify-center p-6 relative"
-                  style={{ backgroundColor: getNdviColor(f.ndvi), minHeight: '140px', minWidth: '160px', boxShadow: getNdviGlow(f.ndvi) }}>
-                  {f.ndvi < 0.65 && <div className="absolute inset-0 rounded-lg" style={{ background: 'radial-gradient(circle at 60% 40%, rgba(239,68,68,0.35) 0%, transparent 60%)' }} />}
-                  <p className="text-white font-semibold text-sm relative z-10">{f.name}</p>
-                  <p className="text-white text-xs opacity-80 relative z-10 mt-1">NDVI {f.ndvi}</p>
-                </div>
-              </div>
-              <div className="absolute bottom-3 left-3 p-2.5 rounded-lg text-xs space-y-1" style={{ backgroundColor: 'rgba(15,23,42,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-white font-medium mb-1.5">NDVI</p>
-                {[{ color: '#16a34a', label: '0.7–1.0 отлично' }, { color: '#4ade80', label: '0.55–0.7 хорошо' }, { color: '#f59e0b', label: '0.4–0.55 стресс' }, { color: '#ef4444', label: '<0.4 риск' }].map(item => (
-                  <div key={item.label} className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
-                    <span style={{ color: '#cbd5e1' }}>{item.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <NdviFieldMap fields={[field]} date={mapDate} showImages height={320} />
           </div>
         </div>
 
@@ -296,9 +300,8 @@ export default function NdviPage() {
             </h3>
             <div className="space-y-2 mb-4">
               {[
-                f.trend === 'up' ? 'Поле развивается равномерно, NDVI растёт стабильно' : f.trend === 'down' ? 'Наблюдается снижение NDVI, требуется обследование' : 'NDVI стабилен, изменений не выявлено',
-                f.risk !== 'Низкий' ? `Незначительная зона снижения NDVI на северном крае (3.2 га)` : 'Проблемных зон не выявлено',
-                'Рекомендуется плановое обследование',
+                trend.startsWith('↑') ? 'По снимкам Sentinel-2 NDVI растёт' : trend.startsWith('↓') ? 'По снимкам Sentinel-2 NDVI снижается' : 'По снимкам Sentinel-2 NDVI меняется слабо',
+                latest ? `Последнее среднее значение ${latest.value.toFixed(2)} на ${latest.date}` : 'История наблюдений ещё не собрана',
               ].map((text, i) => (
                 <div key={i} className="flex items-start gap-2 text-sm text-neutral-600">
                   <span style={{ color: '#16a34a' }}>✦</span>
@@ -306,18 +309,6 @@ export default function NdviPage() {
                 </div>
               ))}
             </div>
-            {f.risk !== 'Низкий' && (
-              <div>
-                <p className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-2">Зоны риска</p>
-                <div className="border border-neutral-200 p-3 flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-neutral-900">Северный край</p>
-                    <p className="text-xs text-neutral-400">Неравномерность развития · 3.2 га · NDVI 0.58</p>
-                  </div>
-                  <span className="px-2 py-0.5 text-xs font-medium rounded-full" style={{ backgroundColor: '#f59e0b', color: '#fff' }}>Средний</span>
-                </div>
-              </div>
-            )}
           </div>
           <div className="bg-white border border-neutral-200 p-5">
             <h3 className="text-sm font-semibold text-neutral-900 mb-3 flex items-center gap-2">
@@ -365,46 +356,32 @@ export default function NdviPage() {
         </div>
       </div>
 
-      {compare ? (
-        <div className="grid grid-cols-2 gap-4">
-          {[{ label: 'Снимок А: ' + sliderLabels[0], date: sliderLabels[0] + ' 2026', data: MOCK_NDVI_OLD }, { label: 'Снимок Б: ' + sliderDateStr.slice(0, 5), date: sliderDateStr, data: MOCK_NDVI }].map((panel, pi) => (
-            <div key={pi}>
-              <p className="text-xs text-neutral-400 mb-2">{panel.label}</p>
-              <div className="rounded-lg p-4 relative" style={{ backgroundColor: '#0f172a', minHeight: '300px' }}>
-                <div className="absolute top-3 right-3 text-xs px-2 py-1 rounded" style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>📅 {panel.date}</div>
-                <div className="flex items-center justify-center h-full py-6">
-                  <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.min(mockFields.length, 3)}, minmax(90px, 130px))` }}>
-                    {mockFields.map(f => renderFieldCard(f, panel.data))}
-                  </div>
-                </div>
-                <div className="absolute bottom-3 left-3 p-2.5 rounded-lg text-xs space-y-1" style={{ backgroundColor: 'rgba(15,23,42,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-white font-medium mb-1">NDVI</p>
-                  {[{ color: '#16a34a', label: '0.7–1.0' }, { color: '#4ade80', label: '0.55–0.7' }, { color: '#f59e0b', label: '0.4–0.55' }, { color: '#ef4444', label: '<0.4' }].map(item => (
-                    <div key={item.label} className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} /><span style={{ color: '#cbd5e1' }}>{item.label}</span></div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
+      {loading ? (
+        <div className="flex items-center justify-center h-64 border border-neutral-200">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-neutral-900" />
         </div>
-      ) : (
-        <div className="rounded-lg p-6 relative" style={{ backgroundColor: '#0f172a', minHeight: '360px' }}>
-          <div className="absolute top-4 right-4 text-xs px-2 py-1 rounded" style={{ backgroundColor: '#1e293b', color: '#94a3b8' }}>📅 {sliderDateStr}</div>
-          {loading ? <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white" /></div> : (
-            <div className="flex items-center justify-center h-full py-8">
-              <div className="grid gap-4" style={{ gridTemplateColumns: `repeat(${Math.min(mockFields.length, 3)}, minmax(140px, 180px))` }}>
-                {mockFields.map(f => renderFieldCard(f, MOCK_NDVI))}
-              </div>
-            </div>
-          )}
-          <div className="absolute bottom-4 left-4 p-3 rounded-lg text-xs space-y-1.5" style={{ backgroundColor: 'rgba(15,23,42,0.92)', border: '1px solid rgba(255,255,255,0.08)' }}>
-            <p className="text-white font-medium mb-2">NDVI</p>
-            {[{ color: '#16a34a', label: '0.7 — 1.0 отлично' }, { color: '#4ade80', label: '0.55 — 0.7 хорошо' }, { color: '#f59e0b', label: '0.4 — 0.55 стресс' }, { color: '#ef4444', label: '< 0.4 риск' }].map(item => (
-              <div key={item.label} className="flex items-center gap-2"><div className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: item.color }} /><span style={{ color: '#cbd5e1' }}>{item.label}</span></div>
-            ))}
+      ) : compare ? (
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+          <div>
+            <p className="text-xs text-neutral-400 mb-2">Снимок А: {sliderLabels[0]}</p>
+            <NdviFieldMap fields={fields} date={compareDateIso} showImages={heatmap} />
+          </div>
+          <div>
+            <p className="text-xs text-neutral-400 mb-2">Снимок Б: {sliderDateStr}</p>
+            <NdviFieldMap fields={fields} date={sliderDateIso} showImages={heatmap} />
           </div>
         </div>
+      ) : (
+        <NdviFieldMap fields={fields} date={sliderDateIso} showImages={heatmap} />
       )}
+      <div className="mt-3 flex flex-wrap gap-3">
+        {[{ color: '#1a9850', label: 'высокий NDVI, плотная растительность' }, { color: '#fee08b', label: 'средний' }, { color: '#d73027', label: 'низкий NDVI, слабая растительность' }].map(item => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: item.color }} />
+            <span className="text-xs text-neutral-500">{item.label}</span>
+          </div>
+        ))}
+      </div>
 
       <div className="mt-4 pt-4 border-t border-neutral-100">
         <div className="flex items-center justify-between mb-3">
