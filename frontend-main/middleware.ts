@@ -39,6 +39,8 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|backend|api|admin|token|static|media|healthz|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // _next целиком: webpack-hmr не должен проходить авторизацию, иначе сокет
+    // отвечает 404 и страница перезагружается по таймеру.
+    '/((?!_next/|favicon.ico|backend|api|admin|token|static|media|healthz|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
