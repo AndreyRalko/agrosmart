@@ -7,7 +7,6 @@ from rest_framework.parsers import MultiPartParser
 from drf_spectacular.utils import extend_schema
 from django.db.models import Sum
 from django.http import HttpResponse
-import openpyxl
 from decimal import Decimal, InvalidOperation
 
 from .models import StorageObject, SensorDevice, StorageSensor, FeedChemistry
@@ -224,6 +223,7 @@ class StorageChemistryTemplateView(APIView):
 
     @extend_schema(tags=['storage'])
     def get(self, request):
+        import openpyxl
         wb = openpyxl.Workbook()
 
         ws = wb.active
@@ -263,6 +263,7 @@ class StorageChemistryImportView(APIView):
         if not file_obj:
             return Response({"error": "No file uploaded (expected 'file')"}, status=status.HTTP_400_BAD_REQUEST)
 
+        import openpyxl
         try:
             wb = openpyxl.load_workbook(file_obj, data_only=True)
             ws = wb.active
