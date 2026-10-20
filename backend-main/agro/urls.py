@@ -79,5 +79,7 @@ urlpatterns = [
     path('me/permissions/', personal.views.MePermissionsView.as_view(), name='me-permissions'),
     path("dashboard/", dashboard.views.DashboardView.as_view(), name="dashboard"),
     path("api/ndvi/", include("ndvi.urls")),
+    path("api/storage/", include("storage.urls")),
+    path("api/ration/", include("ration.urls")),
     *router.urls,
 ]

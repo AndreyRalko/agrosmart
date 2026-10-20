@@ -1,8 +1,9 @@
 import { api } from '../client';
 import type { Culture, CultureDetail, CultureCreate, CultureUpdate, CultureListResponse } from '@/lib/types/culture-operations/culture';
 
-export async function getCultures(): Promise<CultureListResponse> {
-  return api.get<CultureListResponse>('/culture/');
+export async function getCultures(pageSize?: number): Promise<CultureListResponse> {
+  const params = pageSize ? `?page_size=${pageSize}` : '';
+  return api.get<CultureListResponse>(`/culture/${params}`);
 }
 
 export async function getCulture(id: number): Promise<CultureDetail> {

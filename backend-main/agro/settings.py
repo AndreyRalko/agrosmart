@@ -50,7 +50,9 @@ INSTALLED_APPS = [
     "task",
     "notification",
     "transportation",
-    "ndvi"
+    "ndvi",
+    "storage",
+    "ration",
 ]
 
 MIDDLEWARE = [

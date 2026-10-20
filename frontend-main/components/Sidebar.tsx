@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { usePermissions } from '@/lib/hooks/usePermissions';
 import type { ModuleKey } from '@/lib/constants/modules';
@@ -20,6 +20,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const [isMachineryOpen, setIsMachineryOpen] = useState(false);
   const [isAnimalOpen, setIsAnimalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [isRationOpen, setIsRationOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -29,6 +30,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     if (pathname.startsWith('/machinery')) setIsMachineryOpen(true);
     if (pathname.startsWith('/animal')) setIsAnimalOpen(true);
     if (pathname.startsWith('/notification')) setIsNotificationOpen(true);
+    if (pathname.startsWith('/ration')) setIsRationOpen(true);
   }, [pathname]);
 
   const menuItems: Array<{ name: string; href: string; module: ModuleKey; icon: React.ReactNode }> = [
@@ -131,7 +133,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <path strokeLinecap="round" strokeLinejoin="round" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
     </svg>
   )
-},
+    },
   ];
 
   const machinerySubItems = [
@@ -146,20 +148,27 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     { name: 'Качество молока', href: '/animal/milk-quality' },
   ];
 
+  const rationSubItems = [
+    { name: 'Рационы', href: '/ration', isActive: (p: string) => p === '/ration' || (p.startsWith('/ration/') && !p.startsWith('/ration/feeds') && !p.startsWith('/ration/norms')) },
+    { name: 'Корма', href: '/ration/feeds', isActive: (p: string) => p.startsWith('/ration/feeds') },
+    { name: 'Нормы', href: '/ration/norms', isActive: (p: string) => p.startsWith('/ration/norms') },
+  ];
+
   const notificationSubItems = [
     { name: 'Уведомления', href: '/notification' },
     { name: 'Настройки', href: '/notification/settings' },
   ];
 
-  const visibleMenuItems = useMemo(
-    () => menuItems.filter(item => permissionsLoading || canAccessModule(item.module, 'view')),
-    [permissionsLoading, canAccessModule],
+  const visibleMenuItems = menuItems.filter(
+    item => permissionsLoading || canAccessModule(item.module, 'view'),
   );
 
   const showAgroOperations = permissionsLoading || canAccessModule('agro_operations', 'view');
   const showNotifications = permissionsLoading || canAccessModule('notification', 'view');
   const showMachinery = permissionsLoading || canAccessModule('machinery', 'view');
   const showAnimal = permissionsLoading || canAccessModule('animal', 'view');
+  const showStorage = permissionsLoading || canAccessModule('storage', 'view');
+  const showRation = permissionsLoading || canAccessModule('ration', 'view');
 
   if (!mounted) return null;
 
@@ -271,6 +280,67 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                           onClick={onClose}
                           className={`block px-3 py-2 text-sm transition-colors rounded ${
                             pathname === subItem.href
+                              ? 'bg-neutral-100 text-neutral-900 font-medium'
+                              : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
+                          }`}
+                        >
+                          {subItem.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+              )}
+
+              {showStorage && (
+              <li>
+                <Link
+                  href="/storage"
+                  onClick={onClose}
+                  className={expandedClass(pathname === '/storage' || pathname.startsWith('/storage/'))}
+                  title={!isHovered && !isOpen ? 'Хранение кормов' : ''}
+                >
+                  <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+                  </svg>
+                  <span className={`text-sm transition-opacity duration-200 whitespace-nowrap ${isHovered || isOpen ? 'opacity-100' : 'lg:opacity-0 lg:w-0 lg:overflow-hidden'}`}>
+                    Хранение кормов
+                  </span>
+                </Link>
+              </li>
+              )}
+
+              {showRation && (
+              <li>
+                <button
+                  onClick={() => setIsRationOpen(!isRationOpen)}
+                  className={expandedClass(pathname === '/ration' || pathname.startsWith('/ration/'))}
+                  title={!isHovered && !isOpen ? 'Кормление' : ''}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v8.142c0 1.135.845 2.098 1.976 2.192.917.076 1.85.122 2.774.138M12 8.25c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v8.142c0 1.135-.845 2.098-1.976 2.192a48.424 48.424 0 01-2.774.138M12 8.25V6.375m0 14.705v.128c0 .414-.336.75-.75.75h-1.5a.75.75 0 01-.75-.75v-.128M12 21.208V6.375m0 0A2.25 2.25 0 009.75 4.125h4.5A2.25 2.25 0 0012 6.375" />
+                    </svg>
+                    <span className={`text-sm transition-opacity duration-200 whitespace-nowrap ${isHovered || isOpen ? 'opacity-100' : 'lg:opacity-0 lg:w-0 lg:overflow-hidden'}`}>
+                      Кормление
+                    </span>
+                  </div>
+                  {(isHovered || isOpen) && (
+                    <svg className={`w-4 h-4 transition-transform duration-200 shrink-0 ${isRationOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  )}
+                </button>
+                {isRationOpen && (isHovered || isOpen) && (
+                  <ul className="mt-1 ml-11 space-y-1">
+                    {rationSubItems.map((subItem) => (
+                      <li key={subItem.href}>
+                        <Link
+                          href={subItem.href}
+                          onClick={onClose}
+                          className={`block px-3 py-2 text-sm transition-colors rounded ${
+                            subItem.isActive(pathname)
                               ? 'bg-neutral-100 text-neutral-900 font-medium'
                               : 'text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900'
                           }`}

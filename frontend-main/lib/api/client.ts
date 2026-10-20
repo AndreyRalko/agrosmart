@@ -2,22 +2,40 @@
 import { getAccessToken, refreshToken, logout } from './auth';
 import { buildApiUrl } from './api-url';
 
+export class ApiError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.body = body;
+  }
+}
+
 interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
+  responseType?: 'json' | 'blob' | 'text';
 }
 
 export async function apiClient<T = any>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { skipAuth = false, ...fetchOptions } = options;
+  const { skipAuth = false, responseType = 'json', ...fetchOptions } = options;
   
-  // Prepare headers
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
+  // Prepare headers. For FormData the browser must set the multipart boundary.
+  const headers: Record<string, string> = {
     'Accept-Language': getLanguage(),
-    ...fetchOptions.headers,
   };
+  if (!(fetchOptions.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
+  if (fetchOptions.headers) {
+    const extra = fetchOptions.headers as Record<string, string>;
+    Object.assign(headers, extra);
+  }
 
   // Add Authorization header if not skipped
   if (!skipAuth) {
@@ -54,11 +72,13 @@ export async function apiClient<T = any>(
 
     if (!response.ok) {
       let errorMessage = `Request failed: ${response.status}`;
+      let errorBody: unknown = null;
       
       try {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
+          errorBody = errorData;
           console.error('Backend error details:', errorData);
           
           // Обработка разных форматов ошибок от бэкенда
@@ -67,6 +87,8 @@ export async function apiClient<T = any>(
               errorMessage = errorData.message;
             } else if (errorData.detail) {
               errorMessage = errorData.detail;
+            } else if (errorData.error) {
+              errorMessage = errorData.error;
             } else {
               const lines: string[] = [];
               for (const [key, value] of Object.entries(errorData)) {
@@ -91,6 +113,7 @@ export async function apiClient<T = any>(
         }
         } else {
           const text = await response.text();
+          errorBody = text;
           console.error('Backend error (non-JSON):', text);
           if (text) errorMessage = text;
         }
@@ -98,12 +121,19 @@ export async function apiClient<T = any>(
         console.error('Failed to parse error response:', parseError);
       }
       
-      throw new Error(errorMessage);
+      throw new ApiError(errorMessage, response.status, errorBody);
     }
 
     // Проверяем статус 204 (No Content) для DELETE запросов
     if (response.status === 204) {
       return undefined as T;
+    }
+
+    if (responseType === 'blob') {
+      return (await response.blob()) as T;
+    }
+    if (responseType === 'text') {
+      return (await response.text()) as T;
     }
 
     return await response.json();

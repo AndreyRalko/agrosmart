@@ -15,6 +15,8 @@ MODULES = (
     ("notification", _("Notifications")),
     ("machinery", _("Machinery")),
     ("animal", _("Animals")),
+    ("storage", _("Feed storage")),
+    ("ration", _("Feeding rations")),
 )
 
 MODULE_KEYS = {key for key, _ in MODULES}
@@ -36,6 +38,8 @@ PATH_PREFIX_MODULE_MAP = (
     ("notification/", "notification"),
     ("machinery/", "machinery"),
     ("animal/", "animal"),
+    ("api/storage/", "storage"),
+    ("api/ration/", "ration"),
 )
 
 

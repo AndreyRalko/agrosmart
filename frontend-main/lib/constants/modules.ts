@@ -12,7 +12,9 @@ export type ModuleKey =
   | 'agro_operations'
   | 'notification'
   | 'machinery'
-  | 'animal';
+  | 'animal'
+  | 'storage'
+  | 'ration';
 
 export type ModuleAction = 'view' | 'create' | 'edit' | 'delete';
 
@@ -62,6 +64,8 @@ export const MODULE_LABELS_RU: Record<ModuleKey, string> = {
   notification: 'Уведомления',
   machinery: 'Мех. оборудование',
   animal: 'Животные',
+  storage: 'Хранение кормов',
+  ration: 'Кормление',
 };
 
 export const MODULE_ORDER: ModuleKey[] = [
@@ -79,6 +83,8 @@ export const MODULE_ORDER: ModuleKey[] = [
   'notification',
   'machinery',
   'animal',
+  'storage',
+  'ration',
 ];
 
 export function createDefaultModulePermissions(): ModulePermissionItem[] {
@@ -122,5 +128,7 @@ export function pathnameToModule(pathname: string): ModuleKey | null {
   if (pathname.startsWith('/notification')) return 'notification';
   if (pathname.startsWith('/machinery')) return 'machinery';
   if (pathname.startsWith('/animal')) return 'animal';
+  if (pathname.startsWith('/storage')) return 'storage';
+  if (pathname.startsWith('/ration')) return 'ration';
   return null;
 }
