@@ -142,6 +142,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
                         notifications.map(n => {
                           const isUnread = n.status === 'sent';
                           const ctx = n.context_data;
+                          if (!ctx) return null;
                           return (
                             <div
                               key={n.id}
@@ -161,7 +162,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
                                   {ctx.checked_conditions?.length > 0 && (
                                     <div className="mt-1.5 space-y-0.5">
                                       {ctx.checked_conditions.map((cc, i) => {
-                                        const condStr = Object.entries(cc.condition)
+                                        const condStr = Object.entries(cc.condition || {})
                                           .map(([op, val]) => {
                                             const labels: Record<string, string> = { lt: '<', lte: '≤', gt: '>', gte: '≥', eq: '=' };
                                             return `${labels[op] ?? op} ${val}`;

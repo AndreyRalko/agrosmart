@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -8,11 +8,12 @@ import { useAuth } from '@/lib/hooks/useAuth';
 export default function HomePage() {
   const { authenticated, loading } = useAuth();
   const router = useRouter();
+  const redirected = useRef(false);
 
   useEffect(() => {
-    if (!loading && authenticated) {
-      router.replace('/dashboard');
-    }
+    if (loading || !authenticated || redirected.current) return;
+    redirected.current = true;
+    router.replace('/dashboard');
   }, [authenticated, loading, router]);
 
   if (loading || authenticated) {

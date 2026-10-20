@@ -221,9 +221,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               {showAgroOperations && (
               <li>
                 <Link
-                  href="/agro-operations/"
+                  href="/agro-operations"
                   onClick={onClose}
-                  className={expandedClass(pathname === '/agro-operations/')}
+                  className={expandedClass(pathname === '/agro-operations')}
                   title={!isHovered && !isOpen ? 'Агро-операции' : ''}
                 >
                   <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={1.5}>

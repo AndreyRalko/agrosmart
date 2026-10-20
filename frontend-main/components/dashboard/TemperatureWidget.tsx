@@ -24,12 +24,6 @@ export default function TemperatureWidget() {
 
   useEffect(() => {
     loadTemperatures();
-
-    const interval = setInterval(() => {
-      loadTemperatures();
-    }, 15 * 60 * 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const loadTemperatures = async () => {

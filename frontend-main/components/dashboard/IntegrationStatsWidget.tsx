@@ -24,13 +24,6 @@ export default function IntegrationStatsWidget() {
 
   useEffect(() => {
     loadStats();
-    
-    // Автообновление каждые 15 минут
-    const interval = setInterval(() => {
-      loadStats();
-    }, 15 * 60 * 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const loadStats = async () => {
