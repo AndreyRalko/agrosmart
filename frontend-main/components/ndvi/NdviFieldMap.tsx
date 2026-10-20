@@ -6,6 +6,12 @@ import { getNdviMap, type NdviMapResponse } from '@/lib/api/ndvi/ndvi';
 import { buildFieldPolygons } from '@/lib/utils/field-map';
 import type { Field } from '@/lib/types/field/field';
 
+function isSummerScene(sceneDate: string | null | undefined) {
+  if (!sceneDate) return false;
+  const month = Number(sceneDate.slice(5, 7));
+  return month >= 6 && month <= 8;
+}
+
 interface NdviFieldMapProps {
   fields: Field[];
   date: string;
@@ -95,7 +101,10 @@ export default function NdviFieldMap({ fields, date, showImages, height = 520 }:
         const image = polygon.fieldId != null ? images.get(polygon.fieldId) : undefined;
         if (showImages && image) {
           const [south, west, north, east] = image.bounds;
-          L.imageOverlay(image.image, [[south, west], [north, east]], { opacity: 0.95 }).addTo(group);
+          L.imageOverlay(image.image, [[south, west], [north, east]], {
+            opacity: 0.95,
+            className: isSummerScene(info?.scene_date) ? 'ndvi-summer' : '',
+          }).addTo(group);
         }
         const layer = L.polygon(polygon.coordinates, {
           color: '#0f172a',
@@ -148,6 +157,9 @@ export default function NdviFieldMap({ fields, date, showImages, height = 520 }:
           padding: 2px 6px;
         }
         .ndvi-field-label::before { display: none; }
+        .ndvi-summer {
+          filter: saturate(1.35) hue-rotate(14deg);
+        }
       `}</style>
       <div ref={containerRef} className="w-full rounded-lg" style={{ height, backgroundColor: '#e2e8f0' }} />
       {status === 'loading' && (

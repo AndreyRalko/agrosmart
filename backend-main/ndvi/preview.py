@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+import logging
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -15,8 +16,12 @@ from rasterio.features import geometry_mask
 from rasterio.warp import transform, transform_bounds
 from rasterio.windows import Window, from_bounds
 
+from django.db import OperationalError
+
 from field.models import Field
 from ndvi.models import DroneUpload, NdviObservation
+
+logger = logging.getLogger(__name__)
 
 CATALOG_URL = "https://planetarycomputer.microsoft.com/api/stac/v1"
 NDVI_COLOR_MIN = -0.1
@@ -208,16 +213,19 @@ def build_ndvi_map(day: date) -> dict:
             "bounds": rendered["bounds"],
             "image": "data:image/png;base64," + base64.b64encode(rendered["png"]).decode("ascii"),
         })
-        NdviObservation.objects.update_or_create(
-            field=field,
-            scene_id=scene["id"],
-            defaults={
-                "scene_date": date.fromisoformat(scene["date"]),
-                "ndvi_mean": rendered["mean"],
-                "cloud_cover": scene["cloud_cover"],
-                "source": "sentinel-2",
-            },
-        )
+        try:
+            NdviObservation.objects.update_or_create(
+                field=field,
+                scene_id=scene["id"],
+                defaults={
+                    "scene_date": date.fromisoformat(scene["date"]),
+                    "ndvi_mean": rendered["mean"],
+                    "cloud_cover": scene["cloud_cover"],
+                    "source": "sentinel-2",
+                },
+            )
+        except OperationalError:
+            logger.warning("NDVI observation was not saved for field %s", field.id, exc_info=True)
 
     return {
         "requested_date": day.isoformat(),

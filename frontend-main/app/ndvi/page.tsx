@@ -102,12 +102,16 @@ function NdviChart({ data }: { data: { date: string; value: number }[] }) {
       </defs>
       <path d={area} fill="url(#ndviGrad)" />
       <path d={path} fill="none" stroke="#16a34a" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      {data.map((d, i) => (
+      {data.map((d, i) => {
+        const month = Number(d.date.slice(3, 5));
+        const summer = month >= 6 && month <= 8;
+        return (
         <g key={i}>
-          <circle cx={xs[i]} cy={ys[i]} r={4} fill="#16a34a" stroke="#fff" strokeWidth={2} />
+          <circle cx={xs[i]} cy={ys[i]} r={4} fill={summer ? '#15803d' : '#16a34a'} stroke="#fff" strokeWidth={2} />
           <text x={xs[i]} y={h - 8} textAnchor="middle" fontSize={10} fill="#94a3b8">{d.date}</text>
         </g>
-      ))}
+        );
+      })}
     </svg>
   );
 }
