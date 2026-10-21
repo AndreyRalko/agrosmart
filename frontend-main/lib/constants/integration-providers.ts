@@ -13,12 +13,19 @@ export const INTEGRATION_PROVIDERS = [
 
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number]['value'];
 
+export type ProviderConfig = {
+  api: IntegrationProvider;
+  headers_hard: Record<string, string>;
+  body_hard: Record<string, unknown> | null;
+  params_hard: Record<string, unknown> | null;
+};
+
 export function getProviderLabel(api: string | null | undefined): string {
   if (!api) return '—';
   return INTEGRATION_PROVIDERS.find((p) => p.value === api)?.label ?? api;
 }
 
-export function buildProviderConfig(provider: IntegrationProvider, apiKey: string) {
+export function buildProviderConfig(provider: IntegrationProvider, apiKey: string): ProviderConfig {
   if (provider === 'tomorrow.io') {
     return {
       api: provider,
